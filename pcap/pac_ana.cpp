@@ -5,6 +5,90 @@ using namespace std;
 /*ip counter*/
 std::map<std::string, int> counter;
 
+/*header structure*/
+struct ip_address
+{
+	u_char byte1;
+	u_char byte2;
+	u_char byte3;
+	u_char byte4;
+};
+
+struct mac_address
+{
+	u_char byte1;
+	u_char byte2;
+	u_char byte3;
+	u_char byte4;
+	u_char byte5;
+	u_char byte6;
+};
+
+struct ethernet_header
+{
+	mac_address des_mac_addr;
+	mac_address src_mac_addr;
+	u_short type;
+};
+
+struct ip_header
+{
+	u_char	ver_ihl;		// Version (4 bits) + Internet header length (4 bits)
+	u_char	tos;			// Type of service 
+	u_short tlen;			// Total length 
+	u_short identification; // Identification
+	u_short flags_fo;		// Flags (3 bits) + Fragment offset (13 bits)
+	u_char	ttl;			// Time to live
+	u_char	proto;			// Protocol
+	u_short checksum;			// Header checksum
+	ip_address	src_ip_addr;		// Source address
+	ip_address	des_ip_addr;		// Destination address
+	u_int	op_pad;			// Option + Padding
+};
+
+struct arp_header
+{
+	u_short hardware_type;
+	u_short protocol_type;
+	u_char hardware_length;
+	u_char protocol_length;
+	u_short operation_code;
+	mac_address source_mac_addr;
+	ip_address source_ip_addr;
+	mac_address des_mac_addr;
+	ip_address des_ip_addr;
+};
+
+struct tcp_header
+{
+	u_short sport;
+	u_short dport;
+	u_int sequence;
+	u_int acknowledgement;
+	u_char offset;
+	u_char flags;
+	u_short windows;
+	u_short checksum;
+	u_short urgent_pointer;
+};
+
+struct udp_header
+{
+	u_short sport;			// Source port
+	u_short dport;			// Destination port
+	u_short len;			// Datagram length
+	u_short checksum;			// Checksum
+};
+
+struct icmp_header
+{
+	u_char type;
+	u_char code;
+	u_short checksum;
+	u_short id;
+	u_short sequence;
+};
+
 int main()
 {
 	pcap_if_t *alldevs;
@@ -82,14 +166,6 @@ int main()
 		pcap_close(adhandle);
 		return -1;
 	}
-
-
-	//if (pcap_setmode(adhandle, MODE_STAT) < 0)
-	//{
-	//	fprintf(stderr, "\nError setting the mode.\n");
-	//	pcap_close(adhandle);
-	//	return;
-	//}
 
 	cout << "please input the num of packets you want to catch(0 for keeping catching): ";
 	cin >> pktnum;
@@ -367,7 +443,7 @@ void print_map(map<string, int> counter)
 {
 	map<string, int>::iterator iter;
 	cout << DIVISION << "流量统计" << DIVISION << endl;
-	cout << "IP" << setw(45) << "流量" << endl;
+	cout << "IP" << setfill(' ')<<setw(45) << "流量" << endl;
 	for (iter = counter.begin(); iter != counter.end(); iter++)
 	{
 		cout << iter->first  << setfill('.') << setw(45-iter->first.length()) << iter->second<<endl;
