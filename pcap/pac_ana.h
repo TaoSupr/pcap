@@ -32,7 +32,10 @@
 
 
  /* 4 bytes IP address */
-typedef struct ip_address ip_address;
+typedef struct ip_v4_address ip_v4_address;
+
+/* 16 bytes IP address */
+typedef struct ip_v6_address ip_v6_address;
 
 /*8 bytes MAC addresss*/
 typedef struct mac_address mac_address;
@@ -41,7 +44,10 @@ typedef struct mac_address mac_address;
 typedef struct ethernet_header ethernet_header;
 
 /* IPv4 header */
-typedef struct ip_header ip_header;
+typedef struct ip_v4_header ip_v4_header;
+
+/*IPv6 header*/
+typedef struct ip_v6_header ip_v6_header;
 
 /*arp header*/
 typedef struct arp_header arp_header;
@@ -61,8 +67,11 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 /*analysis the ethernet packet*/
 void ethernet_package_handler(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data);
 
-/*analysis the ip packet*/
-void ip_package_handler(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data);
+/*analysis the IPv4 packet*/
+void ip_v4_package_handler(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data);
+
+/*analysis the IPv6 packet*/
+void ip_v6_package_handler(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data);
 
 /*analysis the arp packet*/
 void arp_package_handler(u_char* param, const struct pcap_pkthdr *header, const u_char *pkt_data);
@@ -77,7 +86,8 @@ void tcp_package_handler(u_char* param, const struct pcap_pkthdr *header, const 
 void icmp_package_handler(u_char* param, const struct pcap_pkthdr *header, const u_char *pkt_data);
 
 /*count the package with c++ std::map*/
-void add_to_map(std::map<std::string, int> &counter, ip_address ip);
+void add_to_map(std::map<std::string, int> &counter, ip_v4_address ip);
+void add_to_map(std::map<std::string, int> &counter, ip_v6_address ip);
 
 /*print the map info*/
 void print_map(std::map<std::string, int> counter);

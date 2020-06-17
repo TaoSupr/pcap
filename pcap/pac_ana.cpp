@@ -6,12 +6,24 @@ using namespace std;
 std::map<std::string, int> counter;
 
 /*header structure*/
-struct ip_address
+struct ip_v4_address
 {
 	u_char byte1;
 	u_char byte2;
 	u_char byte3;
 	u_char byte4;
+};
+
+struct ip_v6_address
+{
+	u_short part1;
+	u_short part2;
+	u_short part3;
+	u_short part4;
+	u_short part5;
+	u_short part6;
+	u_short part7;
+	u_short part8;
 };
 
 struct mac_address
@@ -31,7 +43,7 @@ struct ethernet_header
 	u_short type;
 };
 
-struct ip_header
+struct ip_v4_header
 {
 	u_char	ver_ihl;		// Version (4 bits) + Internet header length (4 bits)
 	u_char	tos;			// Type of service 
@@ -41,9 +53,19 @@ struct ip_header
 	u_char	ttl;			// Time to live
 	u_char	proto;			// Protocol
 	u_short checksum;			// Header checksum
-	ip_address	src_ip_addr;		// Source address
-	ip_address	des_ip_addr;		// Destination address
+	ip_v4_address	src_ip_addr;		// Source address
+	ip_v4_address	des_ip_addr;		// Destination address
 	u_int	op_pad;			// Option + Padding
+};
+
+struct ip_v6_header 
+{
+	u_int32_t ver_trafficclass_flowlabel;
+	u_short payload_len;
+	u_char next_head;
+	u_char ttl;
+	ip_v6_address src_ip_addr;
+	ip_v6_address dst_ip_addr;
 };
 
 struct arp_header
@@ -54,9 +76,9 @@ struct arp_header
 	u_char protocol_length;
 	u_short operation_code;
 	mac_address source_mac_addr;
-	ip_address source_ip_addr;
+	ip_v4_address source_ip_addr;
 	mac_address des_mac_addr;
-	ip_address des_ip_addr;
+	ip_v4_address des_ip_addr;
 };
 
 struct tcp_header
@@ -199,11 +221,15 @@ void ethernet_package_handler(u_char *param, const struct pcap_pkthdr *header, c
 	ethernet_header* eh = (ethernet_header*)pkt_data;
 	cout << DIVISION << "以太网协议分析结构" << DIVISION << endl;
 	u_short type = ntohs(eh->type);
-	cout << "类型：" << type;
+	cout << "类型：0x" <<  hex << type;
+	cout << setbase(10);
 	switch (type)
 	{
 	case 0x0800:
-		cout << " (IP)" << endl;
+		cout << " (IPv4)" << endl;
+		break;
+	case 0x86DD:
+		cout << "(IPv6)" << endl;
 		break;
 	case 0x0806:
 		cout << " (ARP)" << endl;
@@ -228,10 +254,13 @@ void ethernet_package_handler(u_char *param, const struct pcap_pkthdr *header, c
 	switch (type)
 	{
 	case 0x0800:
-		ip_package_handler(param, header, pkt_data);
+		ip_v4_package_handler(param, header, pkt_data);
 		break;
 	case 0x0806:
 		arp_package_handler(param, header, pkt_data);
+		break;
+	case 0x86DD:
+		ip_v6_package_handler(param, header, pkt_data);
 		break;
 	default:
 		break;
@@ -246,9 +275,10 @@ void arp_package_handler(u_char *param, const struct pcap_pkthdr *header, const 
 	cout << DIVISION << "ARP协议分析结构" << DIVISION << endl;
 	u_short operation_code = ntohs(ah->operation_code);
 	cout << "硬件类型：" << ntohs(ah->hardware_type) << endl;
-	cout << "协议类型：" << ntohs(ah->protocol_type) << endl;
-	cout << "硬件地址长度：" << ah->hardware_length << endl;
-	cout << "协议地址长度：" << ah->protocol_length << endl;
+	cout << "协议类型：0x" << hex << ntohs(ah->protocol_type) << endl;
+	cout << setbase(10);
+	cout << "硬件地址长度：" << int(ah->hardware_length) << endl;
+	cout << "协议地址长度：" << int(ah->protocol_length) << endl;
 	switch (operation_code)
 	{
 	case 1:
@@ -282,11 +312,11 @@ void arp_package_handler(u_char *param, const struct pcap_pkthdr *header, const 
 	print_map(counter);
 }
 
-void ip_package_handler(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data)
+void ip_v4_package_handler(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data)
 {
-	ip_header *ih;
-	ih = (ip_header *)(pkt_data + 14); //14 measn the length of ethernet header
-	cout << DIVISION << "IP协议分析结构" << DIVISION << endl;
+	ip_v4_header *ih;
+	ih = (ip_v4_header *)(pkt_data + 14); //14 measn the length of ethernet header
+	cout << DIVISION << "IPv4协议分析结构" << DIVISION << endl;
 	cout << "版本号：" << ((ih->ver_ihl & 0xf0) >> 4) << endl;
 	cout << "首部长度：" << (ih->ver_ihl & 0xf) << "("
 		<< ((ih->ver_ihl & 0xf)<<2) << "B)" << endl;
@@ -338,6 +368,55 @@ void ip_package_handler(u_char *param, const struct pcap_pkthdr *header, const u
 			break;
 		default:
 			break;
+	}
+	add_to_map(counter, ih->src_ip_addr);
+	print_map(counter);
+}
+
+void ip_v6_package_handler(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data)
+{
+	ip_v6_header *ih;
+	ih = (ip_v6_header *)(pkt_data + 14); //14 measn the length of ethernet header
+	int version = (ih->ver_trafficclass_flowlabel & 0xf0000000) >> 28;
+	int traffic_class = ntohs((ih->ver_trafficclass_flowlabel & 0x0ff00000) >> 20);
+	int flow_label = ih->ver_trafficclass_flowlabel & 0x000fffff;
+	cout << "版本号：" << version << endl;
+	cout << "通信量类：" << traffic_class << endl;
+	cout << "流标号：" << flow_label << endl;
+	cout << "有效载荷：" << ntohs(ih->payload_len) << endl;
+	cout << "下一个首部：" << int(ih->next_head) << endl;
+	cout << "跳数限制：" << int(ih->ttl) << endl;
+	cout << "源IP地址："
+		<< int(ih->src_ip_addr.part1) << ":"
+		<< int(ih->src_ip_addr.part2) << ":"
+		<< int(ih->src_ip_addr.part3) << ":"
+		<< int(ih->src_ip_addr.part4) << ":"
+		<< int(ih->src_ip_addr.part5) << ":"
+		<< int(ih->src_ip_addr.part6) << ":"
+		<< int(ih->src_ip_addr.part7) << ":"
+		<< int(ih->src_ip_addr.part8) << endl;
+	cout << "目的IP地址："
+		<< int(ih->dst_ip_addr.part1) << ":"
+		<< int(ih->dst_ip_addr.part2) << ":"
+		<< int(ih->dst_ip_addr.part3) << ":"
+		<< int(ih->dst_ip_addr.part4) << ":"
+		<< int(ih->dst_ip_addr.part5) << ":"
+		<< int(ih->dst_ip_addr.part6) << ":"
+		<< int(ih->dst_ip_addr.part7) << ":"
+		<< int(ih->dst_ip_addr.part8) << endl;
+	switch (ih->next_head)
+	{
+	case 6:
+		tcp_package_handler(param, header, pkt_data);
+		break;
+	case 17:
+		udp_package_handler(param, header, pkt_data);
+		break;
+	case 58:
+		icmp_package_handler(param, header, pkt_data);
+		break;
+	default:
+		break;
 	}
 	add_to_map(counter, ih->src_ip_addr);
 	print_map(counter);
@@ -422,7 +501,7 @@ void icmp_package_handler(u_char* param, const struct pcap_pkthdr *header, const
 	cout << "ICMP校验和：" << ntohs(ih->checksum) << endl;
 }
 
-void add_to_map(map<string, int> &counter, ip_address ip) 
+void add_to_map(map<string, int> &counter, ip_v4_address ip) 
 {
 	string ip_string;
 	int amount = 0;
@@ -431,6 +510,27 @@ void add_to_map(map<string, int> &counter, ip_address ip)
 					+ to_string(ip.byte2) + "."
 					+ to_string(ip.byte3) + "."
 					+ to_string(ip.byte4);
+	iter = counter.find(ip_string);
+	if (iter != counter.end())
+	{
+		amount = iter->second;
+	}
+	counter.insert_or_assign(ip_string, ++amount);
+}
+
+void add_to_map(map<string, int> &counter, ip_v6_address ip)
+{
+	string ip_string;
+	int amount = 0;
+	map<string, int>::iterator iter;
+	ip_string = to_string(ip.part1) + ":"
+		+ to_string(ip.part2) + ":"
+		+ to_string(ip.part3) + ":"
+		+ to_string(ip.part4) + ":"
+		+ to_string(ip.part5) + ":"
+		+ to_string(ip.part6) + ":"
+		+ to_string(ip.part7) + ":"
+		+ to_string(ip.part8);
 	iter = counter.find(ip_string);
 	if (iter != counter.end())
 	{
